@@ -440,33 +440,59 @@
     claim(found, SM.BOOTH_KEYS[found]);
   }
 
-  /* 인앱 카메라 (지원 기기만) */
+  /* 인앱 카메라 — 브라우저 내장 판독기 우선, 없으면 jsQR로 대체 (아이폰 대응) */
   function startCam() {
-    if (!('BarcodeDetector' in window)) {
-      toast('이 휴대폰은 앱 안 촬영이 안 돼요.<br>카메라 앱으로 QR을 찍어 주세요');
-      return;
-    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast('카메라를 열 수 없어요');
+      toast('이 브라우저에서는 카메라를 열 수 없어요.<br>카메라 앱으로 QR을 찍어 주세요');
       return;
     }
-    var det = new window.BarcodeDetector({ formats: ['qr_code'] });
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    var useNative = ('BarcodeDetector' in window);
+    if (!useNative && typeof window.jsQR !== 'function') {
+      toast('QR 판독기를 불러오지 못했어요.<br>카메라 앱으로 QR을 찍어 주세요');
+      return;
+    }
+
+    var det = useNative ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
+    var cvs = null, ctx = null;
+    if (!useNative) {
+      cvs = document.createElement('canvas');
+      ctx = cvs.getContext('2d', { willReadFrequently: true });
+    }
+
+    function handle(raw) {
+      var hit = parseScanned(raw);
+      if (!hit) return;
+      stopCam();
+      claim(hit.id, hit.key);
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
       .then(function (st) {
         camStream = st;
         var v = $('qrVideo');
         v.srcObject = st;
-        v.play();
+        v.setAttribute('playsinline', '');
+        var pr = v.play();
+        if (pr && pr.catch) pr.catch(function () {});
         $('reader').classList.add('on');
         $('btnCam').textContent = '촬영 멈추기';
         camTimer = setInterval(function () {
-          det.detect(v).then(function (codes) {
-            if (!codes || !codes.length) return;
-            var hit = parseScanned(codes[0].rawValue);
-            if (!hit) return;
-            stopCam();
-            claim(hit.id, hit.key);
-          }).catch(function () {});
+          if (useNative) {
+            det.detect(v).then(function (codes) {
+              if (codes && codes.length) handle(codes[0].rawValue);
+            }).catch(function () {});
+            return;
+          }
+          if (!v.videoWidth || !v.videoHeight) return;
+          var w = 480, h = Math.round(v.videoHeight * (w / v.videoWidth));
+          if (!h) return;
+          if (cvs.width !== w || cvs.height !== h) { cvs.width = w; cvs.height = h; }
+          try {
+            ctx.drawImage(v, 0, 0, w, h);
+            var img = ctx.getImageData(0, 0, w, h);
+            var code = window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+            if (code && code.data) handle(code.data);
+          } catch (e) {}
         }, 400);
       })
       .catch(function () { toast('카메라 사용을 허용해 주세요'); });
