@@ -506,7 +506,7 @@
     var r = $('reader');
     if (r) r.classList.remove('on');
     var b = $('btnCam');
-    if (b) b.textContent = '앱에서 바로 촬영하기';
+    if (b) b.textContent = 'QR 촬영하기';
   }
 
   /* ───────── 조각 획득 화면 ───────── */
