@@ -1,0 +1,15 @@
+{
+  "name": "설헌마블 · 제6회 허난설헌 문화제",
+  "short_name": "설헌마블",
+  "description": "체험 프로그램 「시간을 잇다」 — 다섯 조각과 이름을 모으는 놀이판",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FCF8ED",
+  "theme_color": "#FCF8ED",
+  "lang": "ko",
+  "icons": [
+    { "src": "img/char_seola_square.png", "sizes": "736x736", "type": "image/png", "purpose": "any" }
+  ]
+}

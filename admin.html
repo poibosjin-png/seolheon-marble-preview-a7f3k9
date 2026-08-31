@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>설헌마블 · 부스 QR 인쇄 (운영자용)</title>
+<style>
+  :root{
+    --ink:#191510; --paper:#FCF8ED; --seal:#C13C33; --yellow:#FFE54C;
+    --f-serif:"Nanum Myeongjo","Noto Serif KR",Batang,serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:26px 20px 60px; background:#EDE7D6; color:var(--ink);
+    font-family:"Pretendard","Malgun Gothic",sans-serif;
+  }
+  .wrap{max-width:1000px; margin:0 auto}
+  h1{font-family:var(--f-serif); font-size:1.6rem; margin:0 0 4px}
+  .sub{font-size:.85rem; color:#585042; line-height:1.7; margin-bottom:18px}
+  .bar{
+    background:#fff; border:3px solid var(--ink); border-radius:14px; padding:14px 16px;
+    box-shadow:4px 4px 0 var(--ink); margin-bottom:22px;
+  }
+  .bar label{display:block; font-size:.8rem; font-weight:800; margin-bottom:6px}
+  .bar input{
+    width:100%; padding:10px 13px; border:2px solid var(--ink); border-radius:8px;
+    font-size:.95rem; font-family:inherit;
+  }
+  .bar .hint{font-size:.75rem; color:#585042; margin-top:7px; line-height:1.6}
+  .btns{margin-top:12px; display:flex; gap:8px; flex-wrap:wrap}
+  button{
+    padding:10px 18px; border:3px solid var(--ink); border-radius:10px; background:var(--yellow);
+    font-weight:800; font-size:.9rem; cursor:pointer; font-family:inherit; box-shadow:3px 3px 0 var(--ink);
+  }
+  button.ghost{background:#fff}
+  button:active{transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink)}
+
+  .sheet{display:grid; grid-template-columns:repeat(2,1fr); gap:16px}
+  .qcard{
+    background:var(--paper); border:3px solid var(--ink); border-radius:14px;
+    padding:18px 16px 14px; text-align:center; page-break-inside:avoid; break-inside:avoid;
+  }
+  .qband{height:8px; border-radius:99px; margin:-6px auto 12px; width:70%}
+  .qno{font-size:.8rem; font-weight:800; color:#585042}
+  .qnm{font-family:var(--f-serif); font-size:1.5rem; font-weight:800; margin:2px 0 2px}
+  .qgain{font-size:.9rem; font-weight:800; color:var(--seal); margin-bottom:12px}
+  .qimg{width:210px; height:210px; margin:0 auto; background:#fff; padding:8px; border:2px solid var(--ink); border-radius:10px}
+  .qimg img, .qimg canvas{width:100%; height:100%; display:block; image-rendering:pixelated}
+  .qguide{font-size:.85rem; font-weight:800; margin-top:12px; line-height:1.6}
+  .qcode{
+    display:inline-block; margin-top:8px; padding:5px 14px; border:2px dashed #585042; border-radius:99px;
+    font-size:.82rem; font-weight:800; letter-spacing:.08em;
+  }
+  .qurl{font-size:.65rem; color:#8a8272; margin-top:9px; word-break:break-all}
+
+  @media print{
+    body{background:#fff; padding:0}
+    .bar,.sub,h1,.noprint{display:none !important}
+    .sheet{grid-template-columns:repeat(2,1fr); gap:10px}
+    .qcard{border-width:2px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>설헌마블 · 부스 QR 인쇄</h1>
+  <div class="sub">
+    부스마다 아래 QR을 <b>A4 또는 A5로 출력</b>해 안내판에 붙여 주세요.
+    아이가 <b>휴대폰 기본 카메라</b>로 QR을 찍으면 설헌마블이 열리면서 그 부스의 조각이 들어갑니다.<br>
+    QR이 안 읽히는 경우를 대비해 <b>확인 글자</b>도 함께 크게 인쇄됩니다(앱에서 직접 입력 가능).
+  </div>
+
+  <div class="bar noprint">
+    <label for="base">앱 주소 (행사 당일 실제 접속 주소)</label>
+    <input id="base" placeholder="예: https://seolheon.c-impact.co.kr/">
+    <div class="hint">
+      비워 두면 지금 이 페이지의 주소를 씁니다. 행사장에서 쓸 <b>최종 주소</b>를 넣고 인쇄하세요.
+      주소가 바뀌면 QR을 다시 인쇄해야 합니다.
+    </div>
+    <div class="btns">
+      <button id="apply">QR 다시 만들기</button>
+      <button class="ghost" id="print">인쇄하기</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script src="vendor/qrcode.js"></script>
+<script src="js/data.js"></script>
+<script>
+(function(){
+  function baseUrl(){
+    var v = document.getElementById('base').value.trim();
+    if(!v){
+      v = location.origin + location.pathname.replace(/admin\.html$/, '');
+    }
+    if(v.indexOf('?') === -1 && v.slice(-1) !== '/' && !/\.html$/.test(v)) v += '/';
+    return v;
+  }
+  function qrImg(text){
+    var q = qrcode(0, 'M');
+    q.addData(text);
+    q.make();
+    return q.createImgTag(6, 0);
+  }
+  function render(){
+    var base = baseUrl();
+    var sheet = document.getElementById('sheet');
+    sheet.innerHTML = '';
+
+    SM.STAMP_ORDER.filter(function(i){ return SM.BOOTH_KEYS[i]; }).forEach(function(i){
+      var c = SM.CELLS[i];
+      var key = SM.BOOTH_KEYS[i];
+      var url = base + (base.indexOf('?') === -1 ? '?' : '&') + 'b=' + i + '&k=' + encodeURIComponent(key);
+      var d = document.createElement('div');
+      d.className = 'qcard';
+      d.innerHTML =
+        '<div class="qband" style="background:' + c.color + '"></div>' +
+        '<div class="qno">' + (c.no || '체험') + '</div>' +
+        '<div class="qnm">' + c.name + '</div>' +
+        '<div class="qgain">' + c.gain + '</div>' +
+        '<div class="qimg">' + qrImg(url) + '</div>' +
+        '<div class="qguide">체험을 마치면<br>이 QR을 찍어 주세요</div>' +
+        '<div class="qcode">확인 글자 &nbsp;' + key + '</div>' +
+        '<div class="qurl">' + url + '</div>';
+      sheet.appendChild(d);
+    });
+
+    // 시작 안내 QR
+    var s = document.createElement('div');
+    s.className = 'qcard';
+    s.innerHTML =
+      '<div class="qband" style="background:#191510"></div>' +
+      '<div class="qno">놀이 시작</div>' +
+      '<div class="qnm">설헌마블</div>' +
+      '<div class="qgain">여기서 시작해요</div>' +
+      '<div class="qimg">' + qrImg(base) + '</div>' +
+      '<div class="qguide">휴대폰 카메라로 찍으면<br>놀이판이 열려요</div>' +
+      '<div class="qurl">' + base + '</div>';
+    sheet.appendChild(s);
+  }
+
+  document.getElementById('apply').addEventListener('click', render);
+  document.getElementById('print').addEventListener('click', function(){ window.print(); });
+  render();
+})();
+</script>
+</body>
+</html>
