@@ -9,7 +9,6 @@
   'use strict';
 
   var SAVE_KEY = 'seolheon_marble_v1';
-  var REDEEM_KEY = 'seolheon_marble_coin_v1';   // 엽전 수령 기록 — 새 놀이로도 지워지지 않음
   var STAMPS = SM.STAMP_ORDER;           // [8,10,7,4,5,9]
   var BOOTHS = STAMPS.filter(function (i) { return i !== 9; });
   var HALL = 9;
@@ -32,6 +31,7 @@
     return {
       v: 1, name: '', charId: SM.CHARACTERS[0].id,
       pos: 0, dest: null, visited: {}, hallTries: 0,
+      coins: {},                 // 엽전 지급 원장 — { start:'pending'|'given', quiz:… }
       startedAt: null, finishedAt: null
     };
   }
@@ -41,6 +41,7 @@
       if (!raw) return null;
       var o = JSON.parse(raw);
       if (!o || o.v !== 1 || !o.name) return null;
+      if (!o.coins) o.coins = {};   // 구버전 저장본 호환
       return o;
     } catch (e) { return null; }
   }
@@ -49,33 +50,39 @@
   }
   function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  /* ── 엽전 수령 기록 (이 기기 1회 제한) ──
-   * localStorage + 쿠키에 이중으로 남긴다. 둘 중 하나만 남아 있어도 차단.
-   * 쿠키는 만료 2027-01-01 (행사 후로 넉넉히).
+  /* ── 엽전 지급 원장 (2026-09-01 개편) ──
+   * 「1인 1회 참여 제한」은 폐지되었다. 엽전은 완주 상품이 아니라 놀이 중 지급되는
+   * 재화이며, 실물 엽전은 저잣거리 「엽전 교환소」에서 운영진이 건넨다.
+   * 지급 사유(key)별 상태: none(미발생) → pending(받을 엽전 있음) → given(수령 완료)
+   * 지급 수치는 COIN_RULES 한 곳에서만 관리한다.
    */
-  function readCoinCookie() {
-    try {
-      var m = document.cookie.match(/(?:^|;\s*)sm_coin=([^;]*)/);
-      return m ? decodeURIComponent(m[1]) : null;
-    } catch (e) { return null; }
+  var COIN_RULES = {
+    start: { n: 3, why: '설헌마블 시작 기념이에요' },
+    quiz:  { n: 3, why: '정답을 맞히셨군요! 참 잘했어요 🎉' }
+  };
+  function coinStat(key) { return (S && S.coins && S.coins[key]) || 'none'; }
+  function grantCoin(key) {
+    if (!COIN_RULES[key] || !S) return false;
+    if (!S.coins) S.coins = {};
+    if (coinStat(key) !== 'none') return false;   // 같은 사유로 두 번 지급 금지
+    S.coins[key] = 'pending';
+    save();
+    return true;
   }
-  function coinRedeemed() {
-    var a = null;
-    try { a = localStorage.getItem(REDEEM_KEY); } catch (e) {}
-    return a || readCoinCookie();
+  function takeCoin(key) {
+    if (coinStat(key) !== 'pending') return false;
+    S.coins[key] = 'given';
+    save();
+    return true;
   }
-  function markCoinRedeemed(code) {
-    var v = code || 'OK';
-    try { localStorage.setItem(REDEEM_KEY, v); } catch (e) {}
-    try {
-      document.cookie = 'sm_coin=' + encodeURIComponent(v) +
-        '; expires=Fri, 01 Jan 2027 00:00:00 GMT; path=/; SameSite=Lax';
-    } catch (e) {}
+  function coinsGiven() {
+    var n = 0, k;
+    for (k in COIN_RULES) if (coinStat(k) === 'given') n += COIN_RULES[k].n;
+    return n;
   }
-  function showDone() {
-    var c = coinRedeemed();
-    $('doneCode').textContent = (c && c !== 'OK') ? '완주번호 ' + c : '기록 완료';
-    show('v-done');
+  function pendingKey() {
+    for (var k in COIN_RULES) if (coinStat(k) === 'pending') return k;
+    return null;
   }
 
   /* ───────── 헬퍼 ───────── */
@@ -242,6 +249,17 @@
 
     renderTrack('track');
 
+    // 엽전 표시 + 받을 엽전 배너
+    var pk = pendingKey();
+    $('tallyCoin').textContent = '🪙 ' + coinsGiven();
+    var cb = $('coinBanner');
+    if (pk) {
+      cb.style.display = 'block';
+      cb.innerHTML = '🪙 받을 엽전 <b>' + COIN_RULES[pk].n + '닢</b>이 있어요 — 저잣거리 <b>엽전 교환소</b>로 가세요';
+    } else {
+      cb.style.display = 'none';
+    }
+
     // 목적지 카드 / 버튼
     var dc = $('destCard'), dl = $('destL'), dv = $('destV'), bq = $('btnQr');
     if (S.dest === null || S.dest === undefined) {
@@ -254,7 +272,7 @@
     } else {
       var t = cell(S.dest);
       dc.classList.add('go');
-      dl.textContent = t.kind === 'hall' ? '이번에 갈 곳 (전시 관람)' : '이번에 갈 곳 (' + t.fee + ')';
+      dl.textContent = '이번에 갈 곳 (' + t.fee + ')';
       dv.textContent = t.name + (t.no ? ' ' + t.no : '');
       bq.disabled = false;
       bq.textContent = t.kind === 'hall' ? '전시관 도착 · 정답 입력하기' : '체험 완료 · QR 찍기';
@@ -356,6 +374,7 @@
   function hop(steps, done) {
     if (steps <= 0) { save(); return done && done(); }
     S.pos = (S.pos + 1) % 12;
+    save();   // 매 걸음 저장 — 이동 애니메이션 중 화면을 닫아도 위치가 유실되지 않게 (뒤로 돌아감 방지)
     placeToken();
     setTimeout(function () { hop(steps - 1, done); }, 240);
   }
@@ -389,11 +408,16 @@
       return false;
     }
     if (got(boothId)) {
-      S.pos = boothId; S.dest = null; save();
+      /* 이미 받은 부스의 QR을 다시 찍은 경우 (행사장엔 QR판이 계속 붙어 있어 흔하다).
+       * ⚠️ 예전에는 여기서 S.pos를 그 부스로 옮기고 S.dest까지 지웠다 — 말이 이전 칸으로
+       *    "뒤로 돌아가고" 주사위로 정한 목적지가 사라지는 버그 (2026-09-01 실사용 제보).
+       *    다시 찍은 것은 이동이 아니므로 위치·목적지는 건드리지 않고 안내만 보여준다. */
       showGain(boothId, true);
       return true;
     }
-    var offRoute = (S.dest !== boothId);
+    /* dest가 실제로 정해져 있을 때만 '다른 곳' 판정 — 첫 스캔(주사위 굴리기 전)에
+     * "주사위가 정한 곳은 아니지만" 토스트가 뜨던 오탐도 함께 고침 */
+    var offRoute = (S.dest !== null && S.dest !== undefined && S.dest !== boothId);
     S.visited[boothId] = Date.now();
     S.pos = boothId;
     S.dest = null;
@@ -460,6 +484,7 @@
     }
 
     function handle(raw) {
+      if (!camTimer) return;   // 판독이 비동기라 두 번 연달아 잡힐 수 있다 — 첫 번만 처리
       var hit = parseScanned(raw);
       if (!hit) return;
       stopCam();
@@ -527,8 +552,25 @@
     if (c.note) { n.style.display = 'block'; n.innerHTML = '※ ' + c.note; }
     else { n.style.display = 'none'; }
     renderTrack('gainTrack', i);
-    $('btnGainOk').textContent = allDone() ? '완주증 받으러 가기' : '판으로 돌아가기';
+    setGainBtn();
     show('v-gain');
+  }
+
+  /* ───────── 엽전 수령 화면 ───────── */
+  function backToBoard() { show('v-board'); syncBoard(); setTimeout(placeToken, 40); }
+  function setGainBtn() {
+    var pk = pendingKey();
+    $('btnGainOk').textContent = pk
+      ? '🪙 엽전 ' + COIN_RULES[pk].n + '닢 받으러 가기'
+      : (allDone() ? '완주증 받으러 가기' : '판으로 돌아가기');
+  }
+  function openCoin(key) {
+    if (coinStat(key) !== 'pending') { backToBoard(); return; }
+    var r = COIN_RULES[key];
+    $('coinTtl').innerHTML = '엽전 <b>' + r.n + '닢</b>을 받으세요';
+    $('coinWhy').textContent = r.why;
+    $('btnCoinTake').setAttribute('data-key', key);
+    show('v-coin');
   }
 
   /* ───────── 전시관 퀴즈 ───────── */
@@ -574,6 +616,7 @@
       S.dest = null;
       if (!S.startedAt) S.startedAt = Date.now();
       if (allDone()) S.finishedAt = Date.now();
+      grantCoin('quiz');            // 전시 퀴즈 정답 — 엽전 지급은 grantCoin 한 곳으로만
       save();
       showHallDone();
       return;
@@ -605,9 +648,13 @@
     $('gainWhy').innerHTML = SM.QUIZ.successBody;
     var n = $('gainNote');
     n.style.display = 'block';
-    n.innerHTML = '※ ' + SM.QUIZ.successNote;
+    n.innerHTML = '※ ' + SM.QUIZ.successNote +
+      (coinStat('quiz') === 'pending'
+        ? '<br><br>🪙 <b>정답을 맞히셨군요! 저잣거리 엽전 교환소에 가셔서 엽전 ' +
+          COIN_RULES.quiz.n + '닢을 받으세요.</b>'
+        : '');
     renderTrack('gainTrack', HALL);
-    $('btnGainOk').textContent = allDone() ? '완주증 받으러 가기' : '판으로 돌아가기';
+    setGainBtn();
     show('v-gain');
   }
 
@@ -658,13 +705,12 @@
   /* ───────── 시작 ───────── */
   function boot() {
     initCover();
-    // 엽전을 이미 받은 기기는 어떤 경로로 들어와도 재참여 불가
-    if (coinRedeemed()) { showDone(); return; }
     var q = readQueryBooth();
     var saved = load();
 
     if (saved) {
       S = saved;
+      if (coinStat('start') === 'none') grantCoin('start');   // 구버전 저장본 보정
       renderPieces();
       renderBoard();
       if (q) {
@@ -702,13 +748,16 @@
     if (v.length > 6) { $('nameErr').textContent = '이름은 6글자까지예요'; return; }
     S.name = v;
     if (!S.startedAt) S.startedAt = Date.now();
+    grantCoin('start');           // 시작 엽전 3닢
     save();
     renderBoard();
     show('v-board');
     if (pendingBooth) {
       var p = pendingBooth; pendingBooth = null;
       setTimeout(function () { claim(p.id, p.key); }, 150);
+      return;
     }
+    setTimeout(function () { openCoin('start'); }, 260);
   }
 
   /* ───────── 이벤트 연결 ───────── */
@@ -740,29 +789,40 @@
     });
 
     $('btnGainOk').addEventListener('click', function () {
+      var pk = pendingKey();
+      if (pk) { openCoin(pk); return; }
       if (allDone()) { gotoBook(); return; }
-      show('v-board'); syncBoard(); setTimeout(placeToken, 40);
+      backToBoard();
     });
+    $('coinBanner').addEventListener('click', function () {
+      var pk = pendingKey();
+      if (pk) openCoin(pk);
+    });
+    $('btnCoinTake').addEventListener('click', function () {
+      var key = this.getAttribute('data-key'), r = COIN_RULES[key];
+      if (!r) { backToBoard(); return; }
+      if (!confirm(
+        '[운영진 확인용]\n\n' +
+        '참가자에게 엽전 ' + r.n + '닢을 드렸습니까?\n' +
+        '(참가자가 실수로 누른 경우 취소를 눌러 주세요)'
+      )) return;
+      takeCoin(key);
+      toast('🪙 엽전 ' + r.n + '닢 수령이 확인되었어요');
+      backToBoard();
+    });
+    $('lnkCoinLater').addEventListener('click', backToBoard);
 
     $('btnQuizOk').addEventListener('click', checkQuiz);
     $('lnkUndo').addEventListener('click', function () { quizPick.pop(); renderQuiz(); });
     $('lnkReset').addEventListener('click', function () { quizPick = []; $('quizErr').textContent = ''; renderQuiz(); });
+    /* 전시를 아직 안 봐서 정답을 모르면 판으로 돌아갈 수 있어야 한다 —
+     * 이 링크가 없어서 퀴즈 화면에 갇히던 구멍을 메움 (목적지는 그대로라 나중에 다시 올 수 있다) */
+    $('lnkHallBack').addEventListener('click', function () { show('v-board'); syncBoard(); setTimeout(placeToken, 40); });
 
     $('btnBookBack').addEventListener('click', function () { show('v-board'); syncBoard(); setTimeout(placeToken, 40); });
     $('btnCert').addEventListener('click', gotoCert);
     $('lnkCertBack').addEventListener('click', gotoBook);
-    $('btnCoinDone').addEventListener('click', function () {
-      if (!confirm(
-        '[운영진 확인용]\n\n' +
-        '참가자에게 엽전을 드렸습니까?\n' +
-        '확인을 누르면 이 휴대폰에서는 설헌마블을 다시 이용할 수 없습니다.\n' +
-        '(참가자가 실수로 누른 경우 취소를 눌러 주세요)'
-      )) return;
-      markCoinRedeemed(certCode());
-      wipe();
-      S = blankState();
-      showDone();
-    });
+    $('btnCertBack2').addEventListener('click', backToBoard);
 
     window.addEventListener('resize', placeToken);
     window.addEventListener('orientationchange', function () { setTimeout(placeToken, 250); });

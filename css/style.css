@@ -88,10 +88,16 @@ b{font-weight:800}
 }
 .cover-when{font-size:.8rem; font-weight:700; letter-spacing:.08em; color:var(--ink-lt)}
 .rule{
+  word-break:keep-all;
   margin:22px 0 0; text-align:left; background:#fff; border:var(--bd); border-radius:14px;
   box-shadow:var(--flat); padding:16px 18px; font-size:.88rem; line-height:1.9; width:100%;
 }
 .rule i{font-style:normal; color:var(--seal); font-weight:800}
+.welcome{
+  margin-top:16px; padding:12px 14px; border:var(--bd); border-radius:12px;
+  background:var(--yellow-lt); font-size:.82rem; line-height:1.75;
+  font-weight:700; text-align:center; word-break:keep-all;
+}
 
 /* ---------- 1. 말 고르기 ---------- */
 .pieces{display:grid; grid-template-columns:1fr 1fr; gap:10px}
@@ -120,6 +126,19 @@ b{font-weight:800}
 .tally-u{display:flex; align-items:center; gap:8px; font-weight:800; font-size:.92rem}
 .tally-av{width:30px; height:30px; border-radius:50%; background:#fff center/contain no-repeat; border:2px solid var(--yellow)}
 .tally-s{font-size:.8rem; font-weight:800; background:var(--yellow); color:var(--ink); padding:4px 10px; border-radius:99px}
+.tally-r{display:flex; align-items:center; gap:6px}
+.tally-s.coin{background:linear-gradient(140deg,#FFF8DE,#E5BE5B); border:1.5px solid #C9A227}
+.coin-banner{
+  padding:9px 16px; background:var(--yellow); color:var(--ink);
+  font-size:.78rem; font-weight:800; text-align:center; line-height:1.5;
+  border-bottom:2px solid var(--ink); cursor:pointer; word-break:keep-all;
+}
+.coin-art{
+  width:110px; height:110px; margin:0 auto 14px; border:var(--bd); border-radius:50%;
+  background:linear-gradient(155deg,#FFF8DE,#E5BE5B);
+  display:flex; align-items:center; justify-content:center;
+  font-size:3.1rem; box-shadow:var(--flat-sm);
+}
 
 .board-wrap{padding:12px 12px 0}
 .board{
@@ -139,7 +158,13 @@ b{font-weight:800}
 .tile-no{font-size:.55rem; font-weight:800; color:var(--ink-lt)}
 .tile.corner{background:var(--paper-dk)}
 .tile.start{background:var(--yellow)}
-.tile.goal{background:#F0EDF6}
+/* 전시관 = 「엽전 열쇠」 칸 — 부루마블 황금열쇠 자리 */
+.tile.goal, .tile.goal.got{
+  background:linear-gradient(155deg,#FFF8DE 0%,#F6DE9E 52%,#E5BE5B 100%);
+  box-shadow:inset 0 0 0 2px #C9A227;
+}
+.tile.goal .tile-sub{color:#6E4E06; font-weight:800; font-size:.47rem}
+.tile.goal .tile-seal{background:#C9A227; color:#3A2A00}
 .tile.dest{outline:3px solid var(--seal); outline-offset:-3px; animation:pulse 1s infinite}
 @keyframes pulse{50%{background:var(--yellow-lt)}}
 .tile-seal{
