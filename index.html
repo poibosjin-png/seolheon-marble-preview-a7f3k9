@@ -32,11 +32,11 @@
         주사위를 굴려 부스를 돌고, 조각과 난설헌의 이름을 모으면 완주!
       </div>
       <div class="rule">
-        <i>①</i> 시작하면 <b>엽전 3닢</b> — 저잣거리 <b>엽전 교환소</b>에서 받으세요<br>
+        <i>①</i> 시작하면 <b>엽전 3닢</b> — <b>엽전 교환소</b> 칸에서 받으세요<br>
         <i>②</i> <b>주사위</b>를 눌러 갈 곳을 정해요<br>
         <i>③</i> 체험을 마치고 부스의 <b>QR을 찍으면</b> 조각을 받아요<br>
         <i>④</i> <b>전시관</b>은 <b>엽전 열쇠</b> 칸 — 전시를 보고 <b>정답</b>을 맞히면 <b>엽전 3닢</b>을 더 드려요<br>
-        <i>⑤</i> <b>여섯 조각</b>(빛·향·빛깔·날개·붓·이름)을 다 모으면 <b>완주</b> — 완주증을 드려요
+        <i>⑤</i> <b>여섯 조각</b>(빛·향·빛깔·날개·붓·이름)을 다 모으면 <b>완주</b> — 완주증과 <b>엽전 2닢</b>을 드려요
       </div>
     </div>
     <div class="foot">
@@ -224,14 +224,15 @@
         <div class="muted" style="margin-top:12px;font-weight:700" id="certDate"></div>
         <div class="cert-code" id="certCode"></div>
       </div>
-      <p class="muted" style="text-align:center;margin-top:14px">
-        여섯 조각을 모두 모으셨어요! 이 화면을 <b>운영 부스</b>에 보여 주세요.<br>
-        모은 엽전은 저잣거리 <b>엽전 교환소</b>에서 체험에 쓸 수 있어요.
+      <p class="muted" id="certMsg" style="text-align:center;margin-top:14px;font-size:.92rem;line-height:1.85">
+        🎉 <b>설헌마블을 완주하셨군요! 축하드립니다.</b><br>
+        이 화면을 <b>엽전 교환소</b>에 보여 주세요.
       </p>
-      <div class="linkbar"><a id="lnkCertBack">시집첩 다시 보기</a></div>
+      <div class="card" id="certStamp" style="display:none;background:var(--yellow-lt);text-align:center;font-weight:800"></div>
     </div>
-    <div class="foot">
-      <button class="btn ghost sm" id="btnCertBack2">판으로 돌아가기</button>
+    <div class="foot" id="certDoneWrap">
+      <p class="warn">⚠ 아래 버튼은 <b>운영진 전용</b>입니다. 참가자는 누르지 마세요.</p>
+      <button class="btn ghost sm" id="btnCertDone">완주 확인 (운영진)</button>
     </div>
   </section>
 
@@ -243,7 +244,7 @@
       <p class="muted" style="text-align:center;font-weight:800;margin:0 0 14px" id="coinWhy"></p>
       <div class="card" style="background:var(--yellow-lt);text-align:center">
         <p style="font-size:.92rem;line-height:1.85;font-weight:700;margin:0">
-          저잣거리 <b>엽전 교환소</b>에 가셔서<br>
+          <b>엽전 교환소</b>에 가셔서<br>
           <b>이 화면을 그대로 보여 주세요.</b><br>
           운영진이 확인하고 엽전을 드립니다.
         </p>
@@ -253,6 +254,23 @@
     <div class="foot">
       <p class="warn">⚠ 아래 버튼은 <b>운영진 전용</b>입니다. 참가자는 누르지 마세요.</p>
       <button class="btn ghost sm" id="btnCoinTake">엽전 수령 확인 (운영진)</button>
+    </div>
+  </section>
+
+  <!-- ═══════ 9. 안내 칸 (뻥이요 · 얼음 음료 · 푸드트럭) ═══════ -->
+  <section class="view" id="v-notice">
+    <div class="scroll" style="padding-top:26px">
+      <div class="coin-art" id="noticeArt">🍿</div>
+      <h2 class="h-title" style="text-align:center;margin:0 0 12px">안내</h2>
+      <div class="card" style="background:var(--yellow-lt);text-align:center">
+        <div style="font-family:var(--f-serif);font-size:1.1rem;font-weight:800;margin-bottom:8px" id="noticeTtl"></div>
+        <p style="font-size:.92rem;line-height:1.85;font-weight:700;margin:0" id="noticeBody"></p>
+        <p class="muted" style="margin:10px 0 0" id="noticeFoot"></p>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn" id="btnNoticeGo" style="display:none">정답 입력하기</button>
+      <button class="btn" id="btnNoticeOk">확인</button>
     </div>
   </section>
 

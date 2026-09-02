@@ -51,14 +51,16 @@
   function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
   /* ── 엽전 지급 원장 (2026-09-01 개편) ──
-   * 「1인 1회 참여 제한」은 폐지되었다. 엽전은 완주 상품이 아니라 놀이 중 지급되는
-   * 재화이며, 실물 엽전은 저잣거리 「엽전 교환소」에서 운영진이 건넨다.
+   * 「1인 1회 참여 제한」은 폐지되었다. 엽전은 놀이 중 쓰는 재화이며,
+   * 실물 엽전은 「엽전 교환소」에서 운영진이 건넨다.
+   * 지급 사유 3가지 — 시작 3닢 / 전시관 정답 3닢 / 완주 축하 2닢 (2026-09-02 대표 지시).
    * 지급 사유(key)별 상태: none(미발생) → pending(받을 엽전 있음) → given(수령 완료)
    * 지급 수치는 COIN_RULES 한 곳에서만 관리한다.
    */
   var COIN_RULES = {
     start: { n: 3, why: '설헌마블 시작 기념이에요' },
-    quiz:  { n: 3, why: '정답을 맞히셨군요! 참 잘했어요 🎉' }
+    quiz:  { n: 3, why: '정답을 맞히셨군요! 참 잘했어요 🎉' },
+    done:  { n: 2, why: '설헌마블을 완주하셨어요! 축하드려요 🎉' }
   };
   function coinStat(key) { return (S && S.coins && S.coins[key]) || 'none'; }
   function grantCoin(key) {
@@ -255,7 +257,7 @@
     var cb = $('coinBanner');
     if (pk) {
       cb.style.display = 'block';
-      cb.innerHTML = '🪙 받을 엽전 <b>' + COIN_RULES[pk].n + '닢</b>이 있어요 — 저잣거리 <b>엽전 교환소</b>로 가세요';
+      cb.innerHTML = '🪙 받을 엽전 <b>' + COIN_RULES[pk].n + '닢</b>이 있어요 — <b>엽전 교환소</b>로 가세요';
     } else {
       cb.style.display = 'none';
     }
@@ -360,12 +362,17 @@
           $('cCap').textContent = face + '칸 이동!';
           save(); syncBoard();
           var c = cell(landed);
-          toast('🎲 <b>' + c.name + '</b>(으)로 가세요');
+          /* 전시관은 도착 안내 팝업(정답 입력하기 · 닫기), 부스는 기존 토스트 */
+          if (c.arrive) openNotice(c.arrive, true);
+          else toast('🎲 <b>' + c.name + '</b>(으)로 가세요');
         } else {
           S.dest = null;
           $('cCap').textContent = '한 번 더 굴리기';
           save(); syncBoard();
-          toast('여기는 <b>' + cell(landed).name + '</b> — 한 번 더 굴려요');
+          var lc = cell(landed);
+          /* 안내 칸(뻥이요·얼음 음료·푸드트럭)은 토스트 대신 확인 버튼이 있는 안내 화면 */
+          if (lc.notice) openNotice(lc.notice, false);
+          else toast('여기는 <b>' + lc.name + '</b> — 한 번 더 굴려요');
         }
       });
     }, 700);
@@ -650,7 +657,7 @@
     n.style.display = 'block';
     n.innerHTML = '※ ' + SM.QUIZ.successNote +
       (coinStat('quiz') === 'pending'
-        ? '<br><br>🪙 <b>정답을 맞히셨군요! 저잣거리 엽전 교환소에 가셔서 엽전 ' +
+        ? '<br><br>🪙 <b>정답을 맞히셨군요! 엽전 교환소에 가셔서 엽전 ' +
           COIN_RULES.quiz.n + '닢을 받으세요.</b>'
         : '');
     renderTrack('gainTrack', HALL);
@@ -682,6 +689,20 @@
     show('v-book');
   }
 
+  /* ───────── 안내 칸 (뻥이요 · 얼음 음료 · 푸드트럭) ───────── */
+  function openNotice(n, withQuiz) {
+    $('noticeArt').textContent = n.art;
+    $('noticeTtl').textContent = n.title;
+    $('noticeBody').innerHTML = n.body;
+    $('noticeFoot').textContent = n.foot;
+    /* withQuiz=true(전시관 도착) → 「정답 입력하기」 + 「닫기」 두 개 */
+    var go = $('btnNoticeGo'), ok = $('btnNoticeOk');
+    go.style.display = withQuiz ? '' : 'none';
+    ok.className = withQuiz ? 'btn ghost sm' : 'btn';
+    ok.textContent = withQuiz ? '닫기' : '확인';
+    show('v-notice');
+  }
+
   /* ───────── 완주증 ───────── */
   function certCode() {
     var base = (S.name || '') + '|' + S.charId + '|' + (S.finishedAt || 0);
@@ -693,13 +714,32 @@
   }
   function gotoCert() {
     if (!S.finishedAt) { S.finishedAt = Date.now(); save(); }
+    if (!S.certOkAt) grantCoin('done');   // 완주 축하 엽전 2닢 — 이미 확인받은 저장본은 제외
+    $('certMsg').innerHTML =
+      '🎉 <b>설헌마블을 완주하셨군요! 축하드립니다.</b><br>' +
+      '이 화면을 <b>엽전 교환소</b>에 보여 주세요.<br>' +
+      '완주 축하 <b>엽전 ' + COIN_RULES.done.n + '닢</b>을 드려요 🪙';
+    $('btnCertDone').textContent = '완주 확인 · 엽전 ' + COIN_RULES.done.n + '닢 지급 (운영진)';
     $('certNm').textContent = S.name;
     $('certChar').textContent = chr().name + ' 말과 함께';
     var d = new Date(S.finishedAt);
     $('certDate').textContent =
       d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 · 광주시문화재단';
     $('certCode').textContent = '완주번호 ' + certCode();
+    renderCertStamp();
     show('v-cert');
+  }
+  /* 운영진 확인 도장 — 확인 전에는 버튼, 확인 후에는 도장만 남는다 */
+  function renderCertStamp() {
+    var on = !!S.certOkAt;
+    $('certDoneWrap').style.display = on ? 'none' : '';
+    var st = $('certStamp');
+    st.style.display = on ? 'block' : 'none';
+    if (on) {
+      var d = new Date(S.certOkAt);
+      st.textContent = '✔ 완주 확인 · 엽전 ' + COIN_RULES.done.n + '닢 지급 완료 · ' +
+        ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    }
   }
 
   /* ───────── 시작 ───────── */
@@ -821,8 +861,22 @@
 
     $('btnBookBack').addEventListener('click', function () { show('v-board'); syncBoard(); setTimeout(placeToken, 40); });
     $('btnCert').addEventListener('click', gotoCert);
-    $('lnkCertBack').addEventListener('click', gotoBook);
-    $('btnCertBack2').addEventListener('click', backToBoard);
+    $('btnCertDone').addEventListener('click', function () {
+      if (!confirm(
+        '[운영진 확인용]\n\n' +
+        '완주를 확인하고 완주 축하 엽전 ' + COIN_RULES.done.n + '닢을 드렸습니까?\n' +
+        '(참가자가 실수로 누른 경우 취소를 눌러 주세요)'
+      )) return;
+      S.certOkAt = Date.now(); save();
+      takeCoin('done');           // 완주 확인과 엽전 지급을 이 버튼 하나로 처리
+      renderCertStamp();
+      toast('✔ 완주 확인 · 엽전 ' + COIN_RULES.done.n + '닢 지급이 기록되었어요');
+    });
+    $('btnNoticeOk').addEventListener('click', function () {
+      show('v-board'); syncBoard(); setTimeout(placeToken, 40);
+    });
+    /* 판 하단 「전시관 도착 · 정답 입력하기」와 완전히 같은 경로로 연결 */
+    $('btnNoticeGo').addEventListener('click', function () { openQr(); });
 
     window.addEventListener('resize', placeToken);
     window.addEventListener('orientationchange', function () { setTimeout(placeToken, 250); });
